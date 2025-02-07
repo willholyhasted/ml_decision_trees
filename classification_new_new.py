@@ -4,6 +4,7 @@
 ##############################################################################
 
 import numpy as np
+from itertools import combinations
 
 
 class DecisionTreeClassifier(object):
@@ -75,97 +76,100 @@ class DecisionTreeClassifier(object):
     
     def fit_recursive(self, x, y, current_depth=0):
         """ Constructs a decision tree classifier from data
-        
         Args:
-        x (numpy.ndarray): Instances, numpy array of shape (N, K) 
-                           N is the number of instances
-                           K is the number of attributes
-        y (numpy.ndarray): Class labels, numpy array of shape (N, )
-                           Each element in y is a str 
-        current_depth(int): The current depth of the tree. Should use 0 for the root node
+            x (numpy.ndarray): Instances, numpy array of shape (N, K)
+                            N is the number of instances
+                            K is the number of attributes
+            y (numpy.ndarray): Class labels, numpy array of shape (N, )
+                            Each element in y is a str
+            current_depth(int): The current depth of the tree. Should use 0 for the root node
         """
-        
-        # Base case 1: If all labels are the same, return the label
         if np.unique(y).size == 1:
             return y[0]
-
-        #Base case 2: If the depth goes beyond max, depth return the most common label
+        
         if self.max_depth is not None and current_depth >= self.max_depth:
-            values, counts = np.unique(y, return_counts = True)
+            values, counts = np.unique(y, return_counts=True)
             return values[np.argmax(counts)]
 
-        #Calculate the parent entropy
-        H_parent = self.entropy(y)
-        gains = []
+        entropy_parent = self.entropy(y)
+        best_gain = 0
+        best_attribute = None
+        best_branches = None
+        best_splits = None
+        best_y_child = None  # Store the best y_child splits
 
-        #Calculate the information gain for each feature
         for i in range(x.shape[1]):
-            if self.method == "median":
-                m = np.median(x[:,i])
-            elif self.method == "mean":
-                m = np.mean(x[:,i])
-            else: m = self.find_optimal_split(x[:,i], y)
-
-            mask_left = x[:,i] < m
-            mask_right = x[:,i] >= m
-            
-            # Skip if split doesn't separate the data
-            if not np.any(mask_left) or not np.any(mask_right):
-                gains.append(-float('inf'))
+            unique_values = np.unique(x[:, i])
+            if self.max_branches == 0:
+                range_branches = len(unique_values)
+            else:
+                range_branches = min(len(unique_values), self.max_branches)
+                
+            if len(unique_values) <= 0:  # Skip features with a single unique value
                 continue
+            if range_branches <= -1:
+                continue  # Skip if there aren't enough values for splitting
+            for j in range(range_branches):
+                if j > 0:
+                    splits = np.array(list(combinations(unique_values, j)))
+                    for k in range(splits.shape[0]):
+                        # Create masks for each split
+                        y_splits = []
+                        for split_idx in range(len(splits[k])):
+                            if split_idx == 0:
+                                mask = x[:, i] < splits[k][split_idx]
+                            else:
+                                mask = (x[:, i] >= splits[k][split_idx-1]) & (x[:, i] < splits[k][split_idx])
+                            y_splits.append(y[mask])
+                        # Add the final split (greater than or equal to the last split value)
+                        mask = x[:, i] >= splits[k][-1]
+                        y_splits.append(y[mask])
+                        y_child = np.array(y_splits, dtype=object)
+                        entropy_child = np.array([self.entropy(part) for part in y_child]).flatten()
+                        weights = np.array([len(part) for part in y_child]).flatten()
+                        
+                        entropy_child_weighted = np.average(entropy_child, weights=weights)
+                        gain = entropy_parent - entropy_child_weighted
+                        if gain > best_gain:
+                            best_gain = gain
+                            best_attribute = i
+                            best_branches = j+1
+                            best_splits = splits[k]
+                            best_y_child = y_child
 
-            #Split the data into two subsets, according to the optimal split
-            y1 = y[mask_left]
-            y2 = y[mask_right]
-            
-            #Calculate the entropy of the two subsets
-            H1 = self.entropy(y1)
-            H2 = self.entropy(y2)
-            
-            # Weighted average of child entropies
-            H_child = (len(y1) * H1 + len(y2) * H2) / len(y)
-            I_gain = H_parent - H_child
-            gains.append(I_gain)
-
-        # If no valid split found, return most common label
-        if max(gains) == -float('inf'):
+        if best_gain <= self.min_info_gain or best_attribute is None:
             values, counts = np.unique(y, return_counts=True)
             return values[np.argmax(counts)]
 
-        #If the information gain is less than minimum, return the most common label in interest of pruning  
-        gain = np.max(gains)
-        if gain <= self.min_info_gain:
-            values, counts = np.unique(y, return_counts=True)
-            return values[np.argmax(counts)]
-
-        #Now split the data on the selected feature and create two new decision trees
-        best_attr = np.argmax(gains)
-        if self.method == "median":
-                m = np.median(x[:,best_attr])
-        elif self.method == "mean":
-                m = np.mean(x[:,best_attr])
-        else: m = self.find_optimal_split(x[:,best_attr], y)
-
-        mask_left = x[:, best_attr] < m
-        mask_right = x[:, best_attr] >= m
+        self.children = []
+        # Create x_child splits using the best attribute and splits
+        x_child = []
+        for split_idx in range(len(best_splits)):
+            if split_idx == 0:
+                mask = x[:, best_attribute] < best_splits[split_idx]
+            else:
+                mask = (x[:, best_attribute] >= best_splits[split_idx-1]) & (x[:, best_attribute] < best_splits[split_idx])
+            x_child.append(x[mask])
+        # Add the final split
+        mask = x[:, best_attribute] >= best_splits[-1]
+        x_child.append(x[mask])
         
-        x1 = x[mask_left]
-        y1 = y[mask_left]
-        x2 = x[mask_right]
-        y2 = y[mask_right]
+        x_child = np.array(x_child, dtype=object)
+        for i in range(best_branches):
+            if len(best_y_child[i]) == 0:
+                values, counts = np.unique(y, return_counts=True)
+                self.children.append(values[np.argmax(counts)])
+            else:
+                child = DecisionTreeClassifier(max_depth=self.max_depth, 
+                                            min_info_gain=self.min_info_gain, 
+                                            method=self.method, 
+                                            max_branches=self.max_branches)
+                self.children.append(child.fit_recursive(x_child[i], best_y_child[i], current_depth + 1))
 
-        self.left = DecisionTreeClassifier(max_depth=self.max_depth, min_info_gain=self.min_info_gain, method=self.method)
-        self.right = DecisionTreeClassifier(max_depth=self.max_depth, min_info_gain=self.min_info_gain, method=self.method)
-        
-        #Recursively call fit on the two new decision trees
-        self.left = self.left.fit_recursive(x1, y1, current_depth + 1)
-        self.right = self.right.fit_recursive(x2, y2, current_depth + 1)
-
-        #Set the attributes of the current node 
-        self.best_attr = best_attr
-        self.split_value = m
-        self.depth = current_depth 
-        
+        self.best_attr = best_attribute
+        self.best_branches = best_branches
+        self.split_values = best_splits
+        self.depth = current_depth
         return self
 
     def prune(self, node, post_pruning_x, post_pruning_y):
@@ -181,10 +185,6 @@ class DecisionTreeClassifier(object):
         
         y_pred_before = self.predict(post_pruning_x)
         accuracy_before = np.mean(post_pruning_y == y_pred_before)
-        '''
-        y_pred_before = self.predict(self.post_pruning_x)
-        accuracy_before = np.mean(self.post_pruning_y == y_pred_before)
-        '''
 
         # Convert node to a leaf node (majority class of validation set)
         values, counts = np.unique(post_pruning_y, return_counts=True)
@@ -194,10 +194,6 @@ class DecisionTreeClassifier(object):
 
         y_pred_after = self.predict(post_pruning_x)
         accuracy_after = np.mean(post_pruning_y == y_pred_after)
-        '''
-        y_pred_after = self.predict(self.post_pruning_x)
-        accuracy_after = np.mean(self.post_pruning_y == y_pred_after)
-        '''
 
         # Keep pruning if accuracy improves
         if accuracy_after - self.post_pruning_accuracy_gain_min >= accuracy_before:
@@ -213,70 +209,6 @@ class DecisionTreeClassifier(object):
 
         return node
     
-    """
-    def prune(self, node, validation_indices=None):
-        Recursively prune the decision tree using REP with proper local validation handling
-        
-        Args:
-            node: Current node to consider for pruning
-            validation_indices: Indices of validation samples that reach this node
-        # Initialize validation indices for root call
-        if validation_indices is None:
-            validation_indices = np.arange(len(self.post_pruning_x))
-            
-        # Base case: leaf node
-        if isinstance(node, str):
-            return node
-            
-        # Get local validation data (samples that reach this node)
-        local_x = self.post_pruning_x[validation_indices]
-        local_y = self.post_pruning_y[validation_indices]
-        
-        # Calculate accuracy before pruning using only local samples
-        local_predictions_before = []
-        for sample in local_x:
-            current = node
-            while not isinstance(current, str):
-                if sample[current.best_attr] <= current.split_value:
-                    current = current.left
-                else:
-                    current = current.right
-            local_predictions_before.append(current)
-        accuracy_before = np.mean(local_y == local_predictions_before)
-        
-        # Get majority class of local validation samples
-        values, counts = np.unique(local_y, return_counts=True)
-        majority_class = values[np.argmax(counts)]
-        
-        # Backup children and try pruning
-        original_left, original_right = node.left, node.right
-        node.left, node.right = majority_class, majority_class
-        
-        # Calculate accuracy after pruning (all local samples would get majority class)
-        accuracy_after = np.mean(local_y == majority_class)
-        
-        # If accuracy improves or stays same, keep node pruned
-        if accuracy_after >= accuracy_before:
-            return majority_class
-            
-        # Otherwise, restore children and continue pruning process
-        node.left, node.right = original_left, original_right
-        
-        # Split validation indices for recursive calls
-        left_indices = []
-        right_indices = []
-        for i, sample in enumerate(local_x):
-            if sample[node.best_attr] <= node.split_value:
-                left_indices.append(validation_indices[i])
-            else:
-                right_indices.append(validation_indices[i])
-                
-        # Recursively prune children with their respective validation samples
-        node.left = self.prune(node.left, np.array(left_indices))
-        node.right = self.prune(node.right, np.array(right_indices))
-        
-        return node
-    """
     
     def print_tree(self, depth=0):
         """Prints the decision tree structure"""
@@ -300,16 +232,23 @@ class DecisionTreeClassifier(object):
             self.right.print_tree(depth + 1)
 
     def predict_one_row(self, x):
+        # If self is a string (leaf node), return the class label
         if isinstance(self, str):
             return self
-        elif x[self.best_attr] < self.split_value:
-            if isinstance(self.left, str):
-                return self.left
-            return self.left.predict_one_row(x)
-        else:
-            if isinstance(self.right, str):
-                return self.right
-            return self.right.predict_one_row(x)
+            
+        # If this node is a leaf node (no splits), return the most common class
+        if not hasattr(self, "split_values") or self.split_values is None:
+            return self
+            
+        # Check which branch x belongs to based on split values
+        for i, split_value in enumerate(self.split_values):
+            if x[self.best_attr] < split_value:
+                return (self.children[i] if isinstance(self.children[i], str) 
+                    else self.children[i].predict_one_row(x))
+        
+        # If no splits matched, use the last branch (x >= last split value)
+        return (self.children[-1] if isinstance(self.children[-1], str)
+                else self.children[-1].predict_one_row(x))
 
     def predict(self, x):
         """ Predicts a set of samples using the trained DecisionTreeClassifier.
