@@ -38,53 +38,23 @@ def compare_rows(d1, d2):
     return new
 
 if __name__ == "__main__":
-    """
-    print("*** QUESTION 1.1 ***")
-    print()
-    x_full, y_full = load_data("data/train_full.txt")
-    x_sub, y_sub = load_data("data/train_sub.txt")
-    data_shape(x_full)
-    data_shape(x_sub)
-    unique_classes(y_full)
-    unique_classes(y_sub)
-    attribute_analysis(x_full)
-
-    print("*** QUESTION 1.2 ***")
-    print()
-
-    print("We now analyse the noisy dataset and compare to full dataset")
-    x_noisy, y_noisy = load_data("data/train_noisy.txt")
-
-    print("*** QUESTION 1.3 ***")
-    print()
-
-    print("*** QUESTION 3 ***")
-    print()
-
-    print("Training the decision tree...")
-    #classifier_full = classification.DecisionTreeClassifier()
-    #classifier_full.fit(x_full, y_full)
-    """
     x_validation, y_validation = load_data("data/validation.txt")
     datasets = ["train_full", "train_sub", "train_noisy", "validation"]
 
     for dataset in datasets:
         x, y = load_data("data/" + dataset + ".txt")
 
-        classifier = classification.DecisionTreeClassifier(max_depth=None, min_info_gain=0, method="information_gain",post_pruning_x=None, post_pruning_y=None, post_pruning_accuracy_gain_min=0.7, max_branches=2)
+        classifier = classification.DecisionTreeClassifier(max_depth=None, min_info_gain=0, max_branches=2)
 
-        #classifier.cross_validation(x, y)
+        classifier.cross_validation(x, y, max_depth=None, min_info_gain=0, max_branches=2)
 
         classifier.fit(x, y)
-
-        #classifier_noisy = classification.DecisionTreeClassifier()
-        #classifier_noisy.fit(x_noisy, y_noisy)
 
         x_test, y_test = load_data("data/test.txt")
 
         y = y_test
         y_hat = classifier.predict(x_test)
-        #print(y_hat)
+        print(y_hat)
         c = classifier.confusion_matrix(y, y_hat)
         
         print("***************************************************************************************")
@@ -94,7 +64,7 @@ if __name__ == "__main__":
         print("The accuracy is: ",acc)
 
         classes = np.unique(np.concatenate((y, y_hat)))
-        """
+        
         print(classes)
 
         for i in range(0, len(classes)):
@@ -109,9 +79,6 @@ if __name__ == "__main__":
         print(f"With macro-averaged recall: {macro_acc}")
         macro_acc = round(classifier.macro_calculator(classifier.f1_score, y, y_hat),2)
         print(f"With macro-averaged F1-score: {macro_acc}")
-        """
-
-    #classifier.print_tree()
 
 
     

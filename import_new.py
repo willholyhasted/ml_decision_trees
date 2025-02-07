@@ -38,40 +38,13 @@ def compare_rows(d1, d2):
     return new
 
 if __name__ == "__main__":
-    """
-    print("*** QUESTION 1.1 ***")
-    print()
-    x_full, y_full = load_data("data/train_full.txt")
-    x_sub, y_sub = load_data("data/train_sub.txt")
-    data_shape(x_full)
-    data_shape(x_sub)
-    unique_classes(y_full)
-    unique_classes(y_sub)
-    attribute_analysis(x_full)
-
-    print("*** QUESTION 1.2 ***")
-    print()
-
-    print("We now analyse the noisy dataset and compare to full dataset")
-    x_noisy, y_noisy = load_data("data/train_noisy.txt")
-
-    print("*** QUESTION 1.3 ***")
-    print()
-
-    print("*** QUESTION 3 ***")
-    print()
-
-    print("Training the decision tree...")
-    #classifier_full = classification.DecisionTreeClassifier()
-    #classifier_full.fit(x_full, y_full)
-    """
     x_validation, y_validation = load_data("data/validation.txt")
     datasets = ["train_full", "train_sub", "train_noisy", "validation"]
 
     for dataset in datasets:
         x, y = load_data("data/" + dataset + ".txt")
 
-        classifier = classification.DecisionTreeClassifier(max_depth=None, min_info_gain=0, method="information_gain",post_pruning_x=None, post_pruning_y=None, post_pruning_accuracy_gain_min=0.7)
+        classifier = classification.DecisionTreeClassifier(max_depth=None, min_info_gain=0, method="information_gain",post_pruning_x=x_validation, post_pruning_y=y_validation, post_pruning_accuracy_gain_min=0.7)
 
         #classifier.cross_validation(x, y)
 

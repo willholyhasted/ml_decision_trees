@@ -19,15 +19,11 @@ class DecisionTreeClassifier(object):
     prune(x_val, y_val): Post-prunes the decision tree
     """
 
-    def __init__(self, max_depth=None, min_info_gain=0, method="information_gain",post_pruning_x=None, post_pruning_y=None,post_pruning_accuracy_gain_min=0,max_branches=0):
+    def __init__(self, max_depth=None, min_info_gain=0,max_branches=0):
         self.is_trained = False
         self.depth = 0
         self.max_depth = max_depth
         self.min_info_gain = min_info_gain
-        self.method = method
-        self.post_pruning_x = post_pruning_x
-        self.post_pruning_y = post_pruning_y
-        self.post_pruning_accuracy_gain_min = post_pruning_accuracy_gain_min
         self.max_branches = max_branches
 
     def entropy(self, y):
@@ -69,8 +65,6 @@ class DecisionTreeClassifier(object):
         
         self.fit_recursive(x, y)
         self.is_trained = True
-        if self.post_pruning_x is not None and self.post_pruning_y is not None:
-            self.prune(self,self.post_pruning_x,self.post_pruning_y)
         return self
 
     
@@ -161,8 +155,7 @@ class DecisionTreeClassifier(object):
                 self.children.append(values[np.argmax(counts)])
             else:
                 child = DecisionTreeClassifier(max_depth=self.max_depth, 
-                                            min_info_gain=self.min_info_gain, 
-                                            method=self.method, 
+                                            min_info_gain=self.min_info_gain,
                                             max_branches=self.max_branches)
                 self.children.append(child.fit_recursive(x_child[i], best_y_child[i], current_depth + 1))
 
@@ -171,65 +164,6 @@ class DecisionTreeClassifier(object):
         self.split_values = best_splits
         self.depth = current_depth
         return self
-
-    def prune(self, node, post_pruning_x, post_pruning_y):
-        """ Recursively prune the decision tree using REP """
-        if isinstance(node, str):  # Leaf node, nothing to prune
-            return node
-        
-        # If no validation data reaches this node, return it unpruned
-        if len(post_pruning_y) == 0:
-            return node 
-
-        # Calculate current accuracy
-        
-        y_pred_before = self.predict(post_pruning_x)
-        accuracy_before = np.mean(post_pruning_y == y_pred_before)
-
-        # Convert node to a leaf node (majority class of validation set)
-        values, counts = np.unique(post_pruning_y, return_counts=True)
-        majority_class = values[np.argmax(counts)]
-        original_left, original_right = node.left, node.right  # Backup
-        node.left, node.right = majority_class, majority_class  # Prune
-
-        y_pred_after = self.predict(post_pruning_x)
-        accuracy_after = np.mean(post_pruning_y == y_pred_after)
-
-        # Keep pruning if accuracy improves
-        if accuracy_after - self.post_pruning_accuracy_gain_min >= accuracy_before:
-            return majority_class
-        else:  # Revert back if accuracy drops and move one tree level down
-            node.left, node.right = original_left, original_right
-            left_mask = post_pruning_x[:, node.best_attr] < node.split_value
-            right_mask = ~left_mask
-            if node.left is not None:
-                node.left = self.prune(node.left, post_pruning_x[left_mask], post_pruning_y[left_mask])
-            if node.right is not None:
-                node.right = self.prune(node.right, post_pruning_x[right_mask], post_pruning_y[right_mask])
-
-        return node
-    
-    
-    def print_tree(self, depth=0):
-        """Prints the decision tree structure"""
-        if isinstance(self, str):  # If this is a leaf node (class label)
-            print("\t" * depth + f"Leaf: {self}")
-            return
-            
-        # If this is an internal node
-        print("\t" * depth + f"[Attribute {self.best_attr} >= {self.split_value}]")
-        
-        print("\t" * depth + "Left:")
-        if isinstance(self.left, str):
-            print("\t" * (depth + 1) + f"Leaf: {self.left}")
-        else:
-            self.left.print_tree(depth + 1)
-            
-        print("\t" * depth + "Right:")
-        if isinstance(self.right, str):
-            print("\t" * (depth + 1) + f"Leaf: {self.right}")
-        else:
-            self.right.print_tree(depth + 1)
 
     def predict_one_row(self, x):
         # If self is a string (leaf node), return the class label
@@ -280,43 +214,6 @@ class DecisionTreeClassifier(object):
             predictions[i] = self.predict_one_row(x[i])
 
         return predictions
-
-    def find_optimal_split(self, x, y):
-        """
-        Finds the optimal split value for a given feature, based on information gain
-
-        Parameters:
-        x (numpy.ndarray): The feature values, shape (N, M)
-        y (numpy.ndarray): The class labels, shape (N, )
-
-        Returns:
-        float: The optimal split value
-        """
-        x_range = np.arange(np.min(x), np.max(x), 1)
-        entropies = {}
-
-        for i in x_range:
-            mask_right = x >= i
-            mask_left = x < i
-
-            # Skip if split doesn't separate the data
-            if not np.any(mask_left) or not np.any(mask_right):
-                continue
-
-            y1 = y[mask_left]
-            y2 = y[mask_right]
-            h1 = self.entropy(y1)
-            h2 = self.entropy(y2)
-
-            h = (len(y1) * h1 + len(y2) * h2) / len(y)
-            entropies[i] = h
-
-        #If there are no valid splits, return the median of the feature
-        if not entropies:
-            return np.median(x)
-
-        split_value = min(entropies, key=entropies.get)
-        return split_value
 
     def confusion_matrix(self, y_gold, y_prediction, class_labels=None):
 
@@ -429,7 +326,7 @@ class DecisionTreeClassifier(object):
             total += metric(y_gold, y_prediction, classes[i])
         return total / len(classes)
 
-    def cross_validation(self, x, y, k=10, max_depth = None, min_info_gain = 0, method = "information_gain"):
+    def cross_validation(self, x, y, k=10, max_depth = None, min_info_gain = 0, max_branches=0):
         """
         Perform k-fold cross-validation
         
@@ -463,7 +360,7 @@ class DecisionTreeClassifier(object):
             y_train = np.concatenate([y[:start_idx], y[end_idx:]])
             
             # Train model
-            classifier = DecisionTreeClassifier(max_depth=max_depth, min_info_gain=min_info_gain, method=method)
+            classifier = DecisionTreeClassifier(max_depth=max_depth, min_info_gain=min_info_gain, max_branches=max_branches)
             classifier.fit(x_train, y_train)
             
             # Make predictions and calculate accuracy

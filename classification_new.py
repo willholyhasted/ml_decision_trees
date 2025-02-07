@@ -18,7 +18,7 @@ class DecisionTreeClassifier(object):
     prune(x_val, y_val): Post-prunes the decision tree
     """
 
-    def __init__(self, max_depth=None, min_info_gain=0, method="information_gain",post_pruning_x=None, post_pruning_y=None,post_pruning_accuracy_gain_min=0,max_branches=0):
+    def __init__(self, max_depth=None, min_info_gain=0, method="information_gain",post_pruning_x=None, post_pruning_y=None,post_pruning_accuracy_gain_min=0):
         self.is_trained = False
         self.depth = 0
         self.max_depth = max_depth
@@ -27,7 +27,6 @@ class DecisionTreeClassifier(object):
         self.post_pruning_x = post_pruning_x
         self.post_pruning_y = post_pruning_y
         self.post_pruning_accuracy_gain_min = post_pruning_accuracy_gain_min
-        self.max_branches = max_branches
 
     def entropy(self, y):
         """ Entropy calculation
@@ -181,10 +180,6 @@ class DecisionTreeClassifier(object):
         
         y_pred_before = self.predict(post_pruning_x)
         accuracy_before = np.mean(post_pruning_y == y_pred_before)
-        '''
-        y_pred_before = self.predict(self.post_pruning_x)
-        accuracy_before = np.mean(self.post_pruning_y == y_pred_before)
-        '''
 
         # Convert node to a leaf node (majority class of validation set)
         values, counts = np.unique(post_pruning_y, return_counts=True)
@@ -194,10 +189,6 @@ class DecisionTreeClassifier(object):
 
         y_pred_after = self.predict(post_pruning_x)
         accuracy_after = np.mean(post_pruning_y == y_pred_after)
-        '''
-        y_pred_after = self.predict(self.post_pruning_x)
-        accuracy_after = np.mean(self.post_pruning_y == y_pred_after)
-        '''
 
         # Keep pruning if accuracy improves
         if accuracy_after - self.post_pruning_accuracy_gain_min >= accuracy_before:
@@ -212,71 +203,6 @@ class DecisionTreeClassifier(object):
                 node.right = self.prune(node.right, post_pruning_x[right_mask], post_pruning_y[right_mask])
 
         return node
-    
-    """
-    def prune(self, node, validation_indices=None):
-        Recursively prune the decision tree using REP with proper local validation handling
-        
-        Args:
-            node: Current node to consider for pruning
-            validation_indices: Indices of validation samples that reach this node
-        # Initialize validation indices for root call
-        if validation_indices is None:
-            validation_indices = np.arange(len(self.post_pruning_x))
-            
-        # Base case: leaf node
-        if isinstance(node, str):
-            return node
-            
-        # Get local validation data (samples that reach this node)
-        local_x = self.post_pruning_x[validation_indices]
-        local_y = self.post_pruning_y[validation_indices]
-        
-        # Calculate accuracy before pruning using only local samples
-        local_predictions_before = []
-        for sample in local_x:
-            current = node
-            while not isinstance(current, str):
-                if sample[current.best_attr] <= current.split_value:
-                    current = current.left
-                else:
-                    current = current.right
-            local_predictions_before.append(current)
-        accuracy_before = np.mean(local_y == local_predictions_before)
-        
-        # Get majority class of local validation samples
-        values, counts = np.unique(local_y, return_counts=True)
-        majority_class = values[np.argmax(counts)]
-        
-        # Backup children and try pruning
-        original_left, original_right = node.left, node.right
-        node.left, node.right = majority_class, majority_class
-        
-        # Calculate accuracy after pruning (all local samples would get majority class)
-        accuracy_after = np.mean(local_y == majority_class)
-        
-        # If accuracy improves or stays same, keep node pruned
-        if accuracy_after >= accuracy_before:
-            return majority_class
-            
-        # Otherwise, restore children and continue pruning process
-        node.left, node.right = original_left, original_right
-        
-        # Split validation indices for recursive calls
-        left_indices = []
-        right_indices = []
-        for i, sample in enumerate(local_x):
-            if sample[node.best_attr] <= node.split_value:
-                left_indices.append(validation_indices[i])
-            else:
-                right_indices.append(validation_indices[i])
-                
-        # Recursively prune children with their respective validation samples
-        node.left = self.prune(node.left, np.array(left_indices))
-        node.right = self.prune(node.right, np.array(right_indices))
-        
-        return node
-    """
     
     def print_tree(self, depth=0):
         """Prints the decision tree structure"""
