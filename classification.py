@@ -271,7 +271,7 @@ class DecisionTreeClassifier(object):
         # if no class_labels are given, we obtain the set of unique class labels from
         # the union of the ground truth annotation and the prediction
         if class_labels is None:
-            class_labels = np.unique(np.concatenate((y_gold, y_prediction)))
+            class_labels = np.sort(np.unique(np.concatenate((y_gold, y_prediction))))
 
         confusion = np.zeros((len(class_labels), len(class_labels)), dtype=int)
 
@@ -386,6 +386,7 @@ class DecisionTreeClassifier(object):
         # Calculate fold size
         fold_size = len(x) // k
         accuracies = []
+        classifiers = []
         
         for i in range(k):
             # Create validation fold
@@ -401,7 +402,7 @@ class DecisionTreeClassifier(object):
             # Train model
             classifier = DecisionTreeClassifier(max_depth=max_depth, min_info_gain=min_info_gain, method=method)
             classifier.fit(x_train, y_train)
-            
+            classifiers.append(classifier)
             # Make predictions and calculate accuracy
             y_pred = classifier.predict(x_val)
             acc = classifier.accuracy(y_val, y_pred)
@@ -413,7 +414,7 @@ class DecisionTreeClassifier(object):
         std_accuracy = round(np.std(accuracies),2)
         print(f"\nMean Accuracy: {mean_accuracy} ± {std_accuracy}")
         
-        return mean_accuracy
+        return classifiers
 
         
 
