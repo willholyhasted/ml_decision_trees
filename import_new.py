@@ -1,5 +1,6 @@
 import numpy as np
-import classification_new as classification
+import improvement
+from classification import DecisionTreeClassifier
 
 def load_data(filename):
     data = np.genfromtxt(filename, dtype = str, delimiter = ',')
@@ -40,51 +41,40 @@ def compare_rows(d1, d2):
 if __name__ == "__main__":
     x_validation, y_validation = load_data("data/validation.txt")
     datasets = ["train_full", "train_sub", "train_noisy", "validation"]
+    x_test, y_test = load_data("data/test.txt")
 
     for dataset in datasets:
         x, y = load_data("data/" + dataset + ".txt")
 
-        classifier = classification.DecisionTreeClassifier(max_depth=None, min_info_gain=0, method="information_gain",post_pruning_x=x_validation, post_pruning_y=y_validation, post_pruning_accuracy_gain_min=0.7)
+        y_hat = improvement.train_and_predict(x, y, x_test, x_validation, y_validation)
 
-        #classifier.cross_validation(x, y)
+        classifier = DecisionTreeClassifier()
 
-        classifier.fit(x, y)
-
-        #classifier_noisy = classification.DecisionTreeClassifier()
-        #classifier_noisy.fit(x_noisy, y_noisy)
-
-        x_test, y_test = load_data("data/test.txt")
-
-        y = y_test
-        y_hat = classifier.predict(x_test)
-        #print(y_hat)
-        c = classifier.confusion_matrix(y, y_hat)
+        c = classifier.confusion_matrix(y_test, y_hat)
         
         print("***************************************************************************************")
         print("The dataset is: ", dataset)
         print("The confusion matrix is: ", c)
-        acc = classifier.accuracy(y, y_hat)
+        acc = classifier.accuracy(y_test, y_hat)
         print("The accuracy is: ",acc)
 
-        classes = np.unique(np.concatenate((y, y_hat)))
-        """
-        print(classes)
+        
+        classes = np.unique(np.concatenate((y_test, y_hat)))
 
         for i in range(0, len(classes)):
-            p = round(classifier.precision(y, y_hat, classes[i]), 2)
-            r = round(classifier.recall(y, y_hat, classes[i]),2)
-            f = round(classifier.f1_score(y, y_hat, classes[i]),2)
+            p = round(classifier.precision(y_test, y_hat, classes[i]), 2)
+            r = round(classifier.recall(y_test, y_hat, classes[i]),2)
+            f = round(classifier.f1_score(y_test, y_hat, classes[i]),2)
             print(f"Class {classes[i]} has Precision: ", p, "Recall: ", r, "F-measure: ", f)
         
-        macro_acc = round(classifier.macro_calculator(classifier.precision, y, y_hat),2)
+        macro_acc = round(classifier.macro_calculator(classifier.precision, y_test, y_hat),2)
         print(f"With macro-averaged precision: {macro_acc}")
-        macro_acc = round(classifier.macro_calculator(classifier.recall, y, y_hat),2)
+        macro_acc = round(classifier.macro_calculator(classifier.recall, y_test, y_hat),2)
         print(f"With macro-averaged recall: {macro_acc}")
-        macro_acc = round(classifier.macro_calculator(classifier.f1_score, y, y_hat),2)
+        macro_acc = round(classifier.macro_calculator(classifier.f1_score, y_test, y_hat),2)
         print(f"With macro-averaged F1-score: {macro_acc}")
-        """
+        
 
-    #classifier.print_tree()
 
 
     

@@ -120,7 +120,6 @@ if __name__ == "__main__":
     #attribute_analysis(x_full)
 
     print("*** QUESTION 1.2 ***")
-    print()
 
     print("We now analyse the noisy dataset and compare to full dataset")
     x_noisy, y_noisy = load_data("data/train_noisy.txt")
@@ -132,7 +131,6 @@ if __name__ == "__main__":
     #unique_classes(y_noisy)
 
     print("*** QUESTION 3 ***")
-    print()
 
     print("Training the decision tree...")
 
@@ -146,18 +144,14 @@ if __name__ == "__main__":
 
         classifier = classification.DecisionTreeClassifier(max_depth=None, min_info_gain=0, method="mean")
 
-        #classifiers = classifier.cross_validation(x, y)
+        classifiers = classifier.cross_validation(x, y)
 
         classifier.fit(x, y)
-
-        #classifier_noisy = classification.DecisionTreeClassifier()
-        #classifier_noisy.fit(x_noisy, y_noisy)
 
         x_test, y_test = load_data("data/test.txt")
 
         y = y_test
         y_hat = classifier.predict(x_test)
-        #print(y_hat)
         c = classifier.confusion_matrix(y, y_hat)
         
        
@@ -166,7 +160,6 @@ if __name__ == "__main__":
         print("The accuracy is: ",acc)
 
         classes = np.sort(np.unique(np.concatenate((y, y_hat))))
-        #print(classes)
 
         for i in range(0, len(classes)):
             p = round(classifier.precision(y, y_hat, classes[i]), 2)
